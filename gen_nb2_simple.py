@@ -1,0 +1,338 @@
+import json
+
+# Notebook 2 SIMPLIFICADO: VADER Sentiment Analysis
+notebook2 = {
+    'cells': [
+        {
+            'cell_type': 'markdown',
+            'metadata': {},
+            'source': [
+                '# Análisis de Sentimientos con NLTK VADER\n',
+                '## Análisis de reseñas de productos de Amazon\n',
+                '\n',
+                '[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/WillianReinaG/PNL_unidad1/blob/main/2_Analisis_Sentimientos_VADER.ipynb)\n',
+                '\n',
+                'Este notebook realiza un análisis completo de sentimientos utilizando NLTK con VADER (Valence Aware Dictionary and sEntiment Reasoner).'
+            ]
+        },
+        {
+            'cell_type': 'markdown',
+            'metadata': {},
+            'source': [
+                '**Instalación de dependencias:** Instala las librerías necesarias para análisis de sentimientos, métricas de evaluación y visualización.'
+            ]
+        },
+        {
+            'cell_type': 'code',
+            'execution_count': None,
+            'metadata': {},
+            'outputs': [],
+            'source': [
+                '!pip install nltk scikit-learn matplotlib seaborn pandas numpy -q\n',
+                '\n',
+                'import nltk\n',
+                'nltk.download("vader_lexicon", quiet=True)\n',
+                'nltk.download("punkt", quiet=True)\n',
+                '\n',
+                'print("✓ Dependencias instaladas")'
+            ]
+        },
+        {
+            'cell_type': 'markdown',
+            'metadata': {},
+            'source': [
+                '**Importar librerías:** Cargamos SentimentIntensityAnalyzer (VADER), métricas de evaluación, y herramientas de visualización.'
+            ]
+        },
+        {
+            'cell_type': 'code',
+            'execution_count': None,
+            'metadata': {},
+            'outputs': [],
+            'source': [
+                'import pandas as pd\n',
+                'import numpy as np\n',
+                'from nltk.sentiment.vader import SentimentIntensityAnalyzer\n',
+                'from nltk.tokenize import word_tokenize\n',
+                'from sklearn.metrics import confusion_matrix, classification_report, accuracy_score, precision_score, recall_score, f1_score\n',
+                'import matplotlib.pyplot as plt\n',
+                'import seaborn as sns\n',
+                'import re\n',
+                'from collections import Counter\n',
+                '\n',
+                'sia = SentimentIntensityAnalyzer()\n',
+                'print("✓ Librerías listas")'
+            ]
+        },
+        {
+            'cell_type': 'markdown',
+            'metadata': {},
+            'source': [
+                '**Cargar datos:** Lee el archivo con ~1,000 reseñas de Amazon. Cada línea tiene: [texto de reseña TAB etiqueta (0=negativo, 1=positivo)]'
+            ]
+        },
+        {
+            'cell_type': 'code',
+            'execution_count': None,
+            'metadata': {},
+            'outputs': [],
+            'source': [
+                'df = pd.read_csv("amazon_cells_labelled.txt", sep="\\t", header=None, names=["review", "sentiment"])\n',
+                '\n',
+                'print(f"Reseñas cargadas: {len(df)}")\n',
+                'print(f"\\nDistribución: {(df[\\"sentiment\\"] == 1).sum()} positivas, {(df[\\"sentiment\\"] == 0).sum()} negativas")\n',
+                'print(f"\\nEjemplos:")\n',
+                'for i in range(3):\n',
+                '    print(f"[{df[\\"sentiment\\"].iloc[i]}] {df[\\"review\\"].iloc[i][:60]}...")'
+            ]
+        },
+        {
+            'cell_type': 'markdown',
+            'metadata': {},
+            'source': [
+                '**Limpieza de datos:** Normaliza el texto: convierte a minúsculas, elimina URLs, caracteres especiales y espacios múltiples.'
+            ]
+        },
+        {
+            'cell_type': 'code',
+            'execution_count': None,
+            'metadata': {},
+            'outputs': [],
+            'source': [
+                'def clean_text(text):\n',
+                '    text = text.lower()\n',
+                '    text = re.sub(r"http\\\\S+|www\\\\S+", "", text)\n',
+                '    text = re.sub(r"[^a-zA-Z0-9\\\\s.!?,-]", "", text)\n',
+                '    text = re.sub(r"\\\\s+", " ", text).strip()\n',
+                '    return text\n',
+                '\n',
+                'df["review_cleaned"] = df["review"].apply(clean_text)\n',
+                'df = df[df["review_cleaned"].str.len() > 0]\n',
+                'print(f"Reseñas después de limpieza: {len(df)}")'
+            ]
+        },
+        {
+            'cell_type': 'markdown',
+            'metadata': {},
+            'source': [
+                '**Análisis VADER:** Aplica VADER a cada reseña. Genera 4 scores: positivo, negativo, neutral y compound (el más importante: -1 a +1).'
+            ]
+        },
+        {
+            'cell_type': 'code',
+            'execution_count': None,
+            'metadata': {},
+            'outputs': [],
+            'source': [
+                'sentiment_scores = df["review_cleaned"].apply(lambda x: sia.polarity_scores(x))\n',
+                'sentiment_df = pd.DataFrame(sentiment_scores.tolist())\n',
+                'df = pd.concat([df, sentiment_df], axis=1)\n',
+                'df = df.rename(columns={"neg": "vader_negative", "neu": "vader_neutral", "pos": "vader_positive", "compound": "vader_compound"})\n',
+                '\n',
+                'print("✓ Análisis completado")\n',
+                'print(f"Compound score: min={df[\\"vader_compound\\"].min():.3f}, max={df[\\"vader_compound\\"].max():.3f}, medio={df[\\"vader_compound\\"].mean():.3f}")'
+            ]
+        },
+        {
+            'cell_type': 'markdown',
+            'metadata': {},
+            'source': [
+                '**Conversión a predicciones:** Convierte los scores continuos (-1 a +1) en predicciones binarias (0 o 1). Threshold: 0.05'
+            ]
+        },
+        {
+            'cell_type': 'code',
+            'execution_count': None,
+            'metadata': {},
+            'outputs': [],
+            'source': [
+                'df["vader_prediction"] = df["vader_compound"].apply(lambda x: 1 if x >= 0.05 else 0)\n',
+                '\n',
+                'print("Distribución de predicciones:")\n',
+                'print(df["vader_prediction"].value_counts())\n',
+                'print(f"\\nPositivas predichas: {(df[\\"vader_prediction\\"] == 1).sum() / len(df) * 100:.1f}%")'
+            ]
+        },
+        {
+            'cell_type': 'markdown',
+            'metadata': {},
+            'source': [
+                '**Métricas de evaluación:** Calcula Accuracy, Precision, Recall y F1-Score comparando predicciones con valores reales.'
+            ]
+        },
+        {
+            'cell_type': 'code',
+            'execution_count': None,
+            'metadata': {},
+            'outputs': [],
+            'source': [
+                'y_true = df["sentiment"].values\n',
+                'y_pred = df["vader_prediction"].values\n',
+                '\n',
+                'accuracy = accuracy_score(y_true, y_pred)\n',
+                'precision = precision_score(y_true, y_pred, zero_division=0)\n',
+                'recall = recall_score(y_true, y_pred, zero_division=0)\n',
+                'f1 = f1_score(y_true, y_pred, zero_division=0)\n',
+                '\n',
+                'print("=" * 60)\n',
+                'print("MÉTRICAS DE CALIDAD")\n',
+                'print("=" * 60)\n',
+                'print(f"Accuracy:  {accuracy:.4f} ({accuracy*100:.2f}%)")\n',
+                'print(f"Precision: {precision:.4f}")\n',
+                'print(f"Recall:    {recall:.4f}")\n',
+                'print(f"F1-Score:  {f1:.4f}")'
+            ]
+        },
+        {
+            'cell_type': 'markdown',
+            'metadata': {},
+            'source': [
+                '**Matriz de confusión:** Muestra verdaderos positivos, falsos negativos, falsos positivos y verdaderos negativos.'
+            ]
+        },
+        {
+            'cell_type': 'code',
+            'execution_count': None,
+            'metadata': {},
+            'outputs': [],
+            'source': [
+                'cm = confusion_matrix(y_true, y_pred)\n',
+                '\n',
+                'print("\\nMatriz de Confusión:")\n',
+                'print(f"{\\"\\\":<20} Predicción Neg  Predicción Pos")\n',
+                'print(f"Real Negativo:      {cm[0,0]:>6}           {cm[0,1]:>6}")\n',
+                'print(f"Real Positivo:      {cm[1,0]:>6}           {cm[1,1]:>6}")\n',
+                '\n',
+                'print("\\nReporte detallado:")\n',
+                'print(classification_report(y_true, y_pred, target_names=["Negativo", "Positivo"]))'
+            ]
+        },
+        {
+            'cell_type': 'markdown',
+            'metadata': {},
+            'source': [
+                '**Visualización 1:** Gráfico de calor de la matriz de confusión.'
+            ]
+        },
+        {
+            'cell_type': 'code',
+            'execution_count': None,
+            'metadata': {},
+            'outputs': [],
+            'source': [
+                'plt.figure(figsize=(8, 6))\n',
+                'sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=["Negativo", "Positivo"], yticklabels=["Negativo", "Positivo"])\n',
+                'plt.title("Matriz de Confusión")\n',
+                'plt.ylabel("Real")\n',
+                'plt.xlabel("Predicción")\n',
+                'plt.tight_layout()\n',
+                'plt.show()'
+            ]
+        },
+        {
+            'cell_type': 'markdown',
+            'metadata': {},
+            'source': [
+                '**Visualización 2:** Histograma de distribución de scores y box plot por sentimiento real.'
+            ]
+        },
+        {
+            'cell_type': 'code',
+            'execution_count': None,
+            'metadata': {},
+            'outputs': [],
+            'source': [
+                'fig, axes = plt.subplots(1, 2, figsize=(14, 5))\n',
+                'axes[0].hist(df["vader_compound"], bins=50, edgecolor="black", alpha=0.7)\n',
+                'axes[0].axvline(x=0.05, color="green", linestyle="--", label="Threshold")\n',
+                'axes[0].set_xlabel("Compound Score")\n',
+                'axes[0].set_title("Distribución de Scores")\n',
+                'axes[0].legend()\n',
+                'df.boxplot(column="vader_compound", by="sentiment", ax=axes[1])\n',
+                'axes[1].set_xlabel("Sentimiento Real")\n',
+                'axes[1].set_title("Compound Score por Sentimiento")\n',
+                'plt.suptitle("")\n',
+                'plt.tight_layout()\n',
+                'plt.show()'
+            ]
+        },
+        {
+            'cell_type': 'markdown',
+            'metadata': {},
+            'source': [
+                '**Palabras influyentes:** Identifica las 10 palabras más frecuentes en reseñas positivas y negativas.'
+            ]
+        },
+        {
+            'cell_type': 'code',
+            'execution_count': None,
+            'metadata': {},
+            'outputs': [],
+            'source': [
+                'positive_reviews = df[df["sentiment"] == 1]["review_cleaned"].str.cat(sep=" ")\n',
+                'negative_reviews = df[df["sentiment"] == 0]["review_cleaned"].str.cat(sep=" ")\n',
+                'positive_words = word_tokenize(positive_reviews)\n',
+                'negative_words = word_tokenize(negative_reviews)\n',
+                'positive_freq = Counter([w for w in positive_words if len(w) > 2 and w.isalpha()])\n',
+                'negative_freq = Counter([w for w in negative_words if len(w) > 2 and w.isalpha()])\n',
+                '\n',
+                'print("Palabras en reseñas POSITIVAS:")\n',
+                'for word, freq in positive_freq.most_common(10):\n',
+                '    print(f"  {word:<15} - {freq:>4} veces")\n',
+                'print("\\nPalabras en reseñas NEGATIVAS:")\n',
+                'for word, freq in negative_freq.most_common(10):\n',
+                '    print(f"  {word:<15} - {freq:>4} veces")'
+            ]
+        },
+        {
+            'cell_type': 'markdown',
+            'metadata': {},
+            'source': [
+                '**Casos mal clasificados:** Analiza falsos positivos y falsos negativos para entender las limitaciones del modelo.'
+            ]
+        },
+        {
+            'cell_type': 'code',
+            'execution_count': None,
+            'metadata': {},
+            'outputs': [],
+            'source': [
+                'df["correct"] = df["sentiment"] == df["vader_prediction"]\n',
+                'misclassified = df[~df["correct"]]\n',
+                'correctly_classified = df[df["correct"]]\n',
+                'fp = misclassified[(misclassified["sentiment"] == 0) & (misclassified["vader_prediction"] == 1)]\n',
+                'fn = misclassified[(misclassified["sentiment"] == 1) & (misclassified["vader_prediction"] == 0)]\n',
+                '\n',
+                'print("=" * 70)\n',
+                'print("ANÁLISIS DE ERRORES")\n',
+                'print("=" * 70)\n',
+                'print(f"Correctas: {len(correctly_classified)} ({len(correctly_classified)/len(df)*100:.2f}%)")\n',
+                'print(f"Incorrectas: {len(misclassified)} ({len(misclassified)/len(df)*100:.2f}%)")\n',
+                'print(f"  - Falsos Positivos: {len(fp)}")\n',
+                'print(f"  - Falsos Negativos: {len(fn)}")\n',
+                '\n',
+                'print(f"\\nEjemplos de FALSOS POSITIVOS:")\n',
+                'for idx in fp.head(2).index:\n',
+                '    print(f"  {df.loc[idx, \\"review\\"][:60]}... | Score: {df.loc[idx, \\"vader_compound\\"]:.3f}")\n',
+                '\n',
+                'print(f"\\nEjemplos de FALSOS NEGATIVOS:")\n',
+                'for idx in fn.head(2).index:\n',
+                '    print(f"  {df.loc[idx, \\"review\\"][:60]}... | Score: {df.loc[idx, \\"vader_compound\\"]:.3f}")'
+            ]
+        }
+    ],
+    'metadata': {
+        'kernelspec': {'display_name': 'Python 3', 'language': 'python', 'name': 'python3'},
+        'language_info': {'name': 'python', 'version': '3.8.0'}
+    },
+    'nbformat': 4,
+    'nbformat_minor': 4
+}
+
+import os
+os.chdir(r'C:\Users\bebes\Documents\MIAA\3. SEMESTRE\2. NLP TRANSFORMES\icesi_NLP_unidad1')
+
+with open('2_Analisis_Sentimientos_VADER.ipynb', 'w', encoding='utf-8') as f:
+    json.dump(notebook2, f, ensure_ascii=False, indent=1)
+
+print('✓ Notebook 2 simplificado')
