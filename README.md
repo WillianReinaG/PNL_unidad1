@@ -155,9 +155,19 @@ Ver `requirements.txt` para la lista completa de paquetes.
 - [Documentación de NLTK](https://www.nltk.org/)
 - [VADER Sentiment Analysis](https://github.com/cjhutto/vaderSentiment)
 
-## 👨‍💻 Autor
+## 👨‍💻 Autores
 
-Proyecto académico - ICESI - Procesamiento de Lenguaje Natural
+- **Juan Manuel Hurtado Angulo**
+- **Manuel Alberto González González**
+- **Willian Alberto Reina García**
+
+## 🎓 Información Académica
+
+**Asignatura:** Procesamiento de Lenguaje Natural
+
+**Tutor:** Luis Ferro Díez
+
+**Institución:** ICESI
 
 ## 📄 Licencia
 
